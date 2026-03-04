@@ -8,18 +8,6 @@ import { useSholat } from "../../api/daerah";
 import { useJadwalSholat } from "../../api/jadwal-sholat";
 // import { PrayerHeader } from '@/components/prayer-header';
 
-interface Jadwal {
-  [key: string]: any; // Tambahkan baris ini
-  tanggal: string;
-  imsak: string;
-  subuh: string;
-  zuhur: string;
-  ashar: string;
-  maghrib: string;
-  isya: string;
-  // ... dst
-}
-
 export default function Home() {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentPrayerIndex, setCurrentPrayerIndex] = useState<number>(-1);
