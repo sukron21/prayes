@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PrayerGrid, type Prayer } from "../../components/prayer-grid";
 import { PrayerHeader } from "../../components/prayer-header";
 import { getRemainingTimeFromString } from "../../utils/times";
@@ -8,56 +8,80 @@ import { useSholat } from "../../api/daerah";
 import { useJadwalSholat } from "../../api/jadwal-sholat";
 // import { PrayerHeader } from '@/components/prayer-header';
 
+interface Jadwal {
+  tanggal: string;
+  imsak: string;
+  subuh: string;
+  dzuhur: string; // sesuaikan dengan API (dzuhur/zuhur)
+  ashar: string;
+  maghrib: string;
+  isya: string;
+}
+
 export default function Home() {
+  const [id, setId] = useState<string>("58a2fc6ed39fd083f55d4182bf88826d");
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentPrayerIndex, setCurrentPrayerIndex] = useState<number>(-1);
   const [nextPrayerIndex, setNextPrayerIndex] = useState<number>(0);
-  const [id, setId] = useState<string>("58a2fc6ed39fd083f55d4182bf88826d");
   const { data } = useSholat();
-  const { data: dataSholat } = useJadwalSholat(id);
-  let prayerTimes: Prayer[] = [];
+  const { data: dataSholat, isLoading, isError } = useJadwalSholat(id);
 
-  if (dataSholat?.data?.jadwal) {
-    // TypeScript sekarang tahu jadwal bukan undefined
+  // let prayerTimes: Prayer[] = [];
+  const prayerTimes = useMemo(() => {
+    if (!dataSholat?.data?.jadwal) return [];
+
+    // 1. Ambil semua kunci tanggal (misal: ["2026-03-04"])
     const dateKeys = Object.keys(dataSholat.data.jadwal);
     const firstDate = dateKeys[0];
 
-    const jadwalHariIni = (dataSholat.data.jadwal as Record<string, any>)[
-      firstDate
-    ];
+    // 2. Beritahu TS bahwa 'dataSholat.data.jadwal' adalah kumpulan objek Jadwal
+    // Gunakan 'any' sementara atau Record<string, any> untuk memintas pengecekan ketat
+    const semuaJadwal = dataSholat.data.jadwal as Record<string, any>;
 
-    prayerTimes = [
+    // 3. Ambil data untuk tanggal pertama
+    const jadwalHariIni = semuaJadwal[firstDate] as Jadwal;
+
+    if (!jadwalHariIni) return [];
+
+    return [
+      { name: "Imsak", arabicName: "إمساك", time: jadwalHariIni.imsak },
       { name: "Subuh", arabicName: "الفجر", time: jadwalHariIni.subuh },
-      { name: "Dzuhur", arabicName: "الظهر", time: jadwalHariIni.dzuhur },
+      // Pastikan di interface & JSON namanya sama (dzuhur vs zuhur)
+      {
+        name: "Dzuhur",
+        arabicName: "الظهر",
+        time: jadwalHariIni.dzuhur || jadwalHariIni.dzuhur,
+      },
       { name: "Ashar", arabicName: "العصر", time: jadwalHariIni.ashar },
       { name: "Maghrib", arabicName: "المغرب", time: jadwalHariIni.maghrib },
       { name: "Isya", arabicName: "العشاء", time: jadwalHariIni.isya },
     ];
-  }
+  }, [dataSholat]);
 
   useEffect(() => {
     const updateTime = () => {
+      if (!prayerTimes || prayerTimes.length === 0) return;
+
       const now = new Date();
       const hours = String(now.getHours()).padStart(2, "0");
       const minutes = String(now.getMinutes()).padStart(2, "0");
       setCurrentTime(`${hours}:${minutes}`);
 
-      // Determine current and next prayer
       const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
       let current = -1;
       let next = 0;
 
       for (let i = 0; i < prayerTimes.length; i++) {
-        const [h, m] = prayerTimes[i].time.split(":").map(Number);
+        const timeString = prayerTimes[i]?.time;
+
+        // Proteksi jika properti time tidak ada
+        if (!timeString) continue;
+
+        const [h, m] = timeString.split(":").map(Number);
         const prayerTimeInMinutes = h * 60 + m;
 
-        if (
-          prayerTimeInMinutes <= currentTimeInMinutes &&
-          (i === prayerTimes.length - 1 ||
-            parseInt(prayerTimes[i + 1].time.split(":")[0]) * 60 +
-              parseInt(prayerTimes[i + 1].time.split(":")[1]) >
-              currentTimeInMinutes)
-        ) {
+        // Logika menentukan jadwal saat ini dan selanjutnya
+        if (prayerTimeInMinutes <= currentTimeInMinutes) {
           current = i;
           next = i + 1 < prayerTimes.length ? i + 1 : 0;
         }
@@ -70,7 +94,40 @@ export default function Home() {
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [prayerTimes]);
+
+  if (isLoading) return <div>Menarik data...</div>;
+  if (isError) return <div>Gagal memuat data.</div>;
+
+  // if (dataSholat?.data?.jadwal) {
+  //   // TypeScript sekarang tahu jadwal bukan undefined
+  //   const dateKeys = Object.keys(dataSholat.data.jadwal);
+  //   const firstDate = dateKeys[0];
+
+  //   const jadwalHariIni = (dataSholat.data.jadwal as Record<string, any>)[
+  //     firstDate
+  //   ];
+
+  //   prayerTimes = [
+  //     { name: "Imsak", arabicName: "إمساك", time: jadwalHariIni.imsak },
+  //     { name: "Subuh", arabicName: "الفجر", time: jadwalHariIni.subuh },
+  //     { name: "Dzuhur", arabicName: "الظهر", time: jadwalHariIni.zuhur },
+  //     { name: "Ashar", arabicName: "العصر", time: jadwalHariIni.ashar },
+  //     { name: "Maghrib", arabicName: "المغرب", time: jadwalHariIni.maghrib },
+  //     { name: "Isya", arabicName: "العشاء", time: jadwalHariIni.isya },
+  //   ];
+  // }
+  // const prayerTimes: Prayer[] = [
+  //   { name: "Subuh", arabicName: "الفجر", time: "04:45" },
+
+  //   { name: "Dzuhur", arabicName: "الظهر", time: "12:15" },
+
+  //   { name: "Ashar", arabicName: "العصر", time: "15:45" },
+
+  //   { name: "Maghrib", arabicName: "المغرب", time: "18:30" },
+
+  //   { name: "Isya", arabicName: "العشاء", time: "20:00" },
+  // ];
 
   const today = new Date();
   const dateOptions: Intl.DateTimeFormatOptions = {

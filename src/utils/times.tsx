@@ -1,4 +1,7 @@
 export function getRemainingTimeFromString(targetTime: string) {
+  if (!targetTime) {
+    return { hours: 0, minutes: 0, seconds: 0 };
+  }
   const [hourStr, minuteStr] = targetTime.split(":");
   const targetHour = parseInt(hourStr, 10);
   const targetMinute = parseInt(minuteStr, 10);
