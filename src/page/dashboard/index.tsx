@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PrayerGrid, type Prayer } from "../../components/prayer-grid";
+import { PrayerGrid } from "../../components/prayer-grid";
 import { PrayerHeader } from "../../components/prayer-header";
 import { getRemainingTimeFromString } from "../../utils/times";
 import { useSholat } from "../../api/daerah";
